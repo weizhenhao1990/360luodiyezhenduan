@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>360SEM 落地页诊断工具</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <!-- 顶部导航 -->
+    <header class="header">
+      <div class="header-inner">
+        <div class="logo">
+          <span class="logo-icon">🔍</span>
+          <div>
+            <h1>落地页诊断工具</h1>
+            <p class="logo-sub">360SEM Landing Page Diagnostic</p>
+          </div>
+        </div>
+        <div class="header-badge">SEM运营专用</div>
+      </div>
+    </header>
+
+    <!-- 输入区域 -->
+    <section class="input-section">
+      <div class="input-card">
+        <h2 class="input-title">输入落地页网址，一键生成诊断报告</h2>
+        <p class="input-desc">检测加载速度 · 转化表单 · 联系方式 · 产品介绍，四大维度全面评估落地页质量</p>
+        <div class="input-row">
+          <div class="input-wrap">
+            <span class="input-prefix">https://</span>
+            <input type="text" id="urlInput" placeholder="例如：www.example.com" autocomplete="off" />
+          </div>
+          <button id="analyzeBtn" class="btn-primary">
+            <span class="btn-text">开始诊断</span>
+            <span class="btn-icon">→</span>
+          </button>
+        </div>
+        <div id="errorMsg" class="error-msg" style="display:none;"></div>
+        <div class="quick-links">
+          <span class="quick-label">诊断维度：</span>
+          <span class="tag">⚡ 加载速度</span>
+          <span class="tag">📋 转化表单</span>
+          <span class="tag">📞 联系方式</span>
+          <span class="tag">📦 产品介绍</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 加载动画 -->
+    <section id="loadingSection" class="loading-section" style="display:none;">
+      <div class="loading-content">
+        <div class="loading-spinner">
+          <div class="spinner-ring"></div>
+          <div class="spinner-ring"></div>
+          <div class="spinner-ring"></div>
+        </div>
+        <div class="loading-text" id="loadingText">正在抓取页面内容...</div>
+        <div class="loading-steps">
+          <div class="step" id="step1"><span class="step-dot"></span>抓取网页</div>
+          <div class="step" id="step2"><span class="step-dot"></span>解析内容</div>
+          <div class="step" id="step3"><span class="step-dot"></span>多维分析</div>
+          <div class="step" id="step4"><span class="step-dot"></span>生成报告</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 结果区域 -->
+    <section id="resultSection" class="result-section" style="display:none;">
+      <!-- 报告头部 -->
+      <div class="report-header">
+        <div class="report-info">
+          <h2>诊断报告</h2>
+          <p class="report-meta">
+            <span id="reportUrl"></span>
+            <span class="meta-divider">|</span>
+            <span id="reportTime"></span>
+            <span class="meta-divider">|</span>
+            <span id="reportTitle"></span>
+          </p>
+        </div>
+        <div class="report-actions">
+          <button id="exportPdfBtn" class="btn-export">
+            <span>📄</span> 导出PDF
+          </button>
+          <button id="printBtn" class="btn-print">
+            <span>🖨️</span> 打印报告
+          </button>
+        </div>
+      </div>
+
+      <!-- 总评分 -->
+      <div class="score-overview">
+        <div class="total-score-card">
+          <div class="gauge-container">
+            <svg class="gauge" viewBox="0 0 200 200">
+              <circle cx="100" cy="100" r="85" class="gauge-bg" />
+              <circle cx="100" cy="100" r="85" class="gauge-fill" id="gaugeFill" />
+            </svg>
+            <div class="gauge-center">
+              <div class="gauge-score" id="totalScore">--</div>
+              <div class="gauge-label">综合评分</div>
+            </div>
+          </div>
+          <div class="grade-badge" id="gradeBadge">
+            <span class="grade-letter" id="gradeLetter">--</span>
+            <span class="grade-text" id="gradeText">待检测</span>
+          </div>
+        </div>
+
+        <div class="dimension-scores">
+          <div class="dim-score-item" data-dim="speed">
+            <div class="dim-icon">⚡</div>
+            <div class="dim-info">
+              <div class="dim-name">加载速度</div>
+              <div class="dim-bar-wrap">
+                <div class="dim-bar" id="bar-speed"></div>
+              </div>
+              <div class="dim-score-text" id="score-speed">--分</div>
+            </div>
+          </div>
+          <div class="dim-score-item" data-dim="conversion">
+            <div class="dim-icon">📋</div>
+            <div class="dim-info">
+              <div class="dim-name">转化表单</div>
+              <div class="dim-bar-wrap">
+                <div class="dim-bar" id="bar-conversion"></div>
+              </div>
+              <div class="dim-score-text" id="score-conversion">--分</div>
+            </div>
+          </div>
+          <div class="dim-score-item" data-dim="contact">
+            <div class="dim-icon">📞</div>
+            <div class="dim-info">
+              <div class="dim-name">联系方式</div>
+              <div class="dim-bar-wrap">
+                <div class="dim-bar" id="bar-contact"></div>
+              </div>
+              <div class="dim-score-text" id="score-contact">--分</div>
+            </div>
+          </div>
+          <div class="dim-score-item" data-dim="product">
+            <div class="dim-icon">📦</div>
+            <div class="dim-info">
+              <div class="dim-name">产品介绍</div>
+              <div class="dim-bar-wrap">
+                <div class="dim-bar" id="bar-product"></div>
+              </div>
+              <div class="dim-score-text" id="score-product">--分</div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 总体建议 -->
+      <div id="overallSuggestions" class="overall-suggestions"></div>
+
+      <!-- 各维度详细结果 -->
+      <div class="dimensions-detail">
+        <!-- 加载速度 -->
+        <div class="dim-detail-card" id="detail-speed">
+          <div class="dim-detail-header">
+            <span class="dim-detail-icon">⚡</span>
+            <h3>加载速度分析</h3>
+            <span class="dim-detail-score" id="detail-score-speed">--</span>
+          </div>
+          <div class="findings-list" id="findings-speed"></div>
+          <div class="suggestions-block">
+            <h4 class="suggestions-title">🔧 整改建议</h4>
+            <ul class="suggestions-list" id="suggestions-speed"></ul>
+          </div>
+        </div>
+
+        <!-- 转化表单 -->
+        <div class="dim-detail-card" id="detail-conversion">
+          <div class="dim-detail-header">
+            <span class="dim-detail-icon">📋</span>
+            <h3>转化表单分析</h3>
+            <span class="dim-detail-score" id="detail-score-conversion">--</span>
+          </div>
+          <div class="findings-list" id="findings-conversion"></div>
+          <div class="suggestions-block">
+            <h4 class="suggestions-title">🔧 整改建议</h4>
+            <ul class="suggestions-list" id="suggestions-conversion"></ul>
+          </div>
+        </div>
+
+        <!-- 联系方式 -->
+        <div class="dim-detail-card" id="detail-contact">
+          <div class="dim-detail-header">
+            <span class="dim-detail-icon">📞</span>
+            <h3>联系方式分析</h3>
+            <span class="dim-detail-score" id="detail-score-contact">--</span>
+          </div>
+          <div class="findings-list" id="findings-contact"></div>
+          <div class="suggestions-block">
+            <h4 class="suggestions-title">🔧 整改建议</h4>
+            <ul class="suggestions-list" id="suggestions-contact"></ul>
+          </div>
+        </div>
+
+        <!-- 产品介绍 -->
+        <div class="dim-detail-card" id="detail-product">
+          <div class="dim-detail-header">
+            <span class="dim-detail-icon">📦</span>
+            <h3>产品介绍分析</h3>
+            <span class="dim-detail-score" id="detail-score-product">--</span>
+          </div>
+          <div class="findings-list" id="findings-product"></div>
+          <div class="suggestions-block">
+            <h4 class="suggestions-title">🔧 整改建议</h4>
+            <ul class="suggestions-list" id="suggestions-product"></ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- 底部操作 -->
+      <div class="report-footer">
+        <button class="btn-secondary" onclick="window.scrollTo({top:0,behavior:'smooth'})">回到顶部</button>
+        <button class="btn-secondary" id="reanalyzeBtn">重新检测</button>
+        <button class="btn-export" id="exportPdfBtn2"><span>📄</span> 导出PDF</button>
+        <button class="btn-print" id="printBtn2"><span>🖨️</span> 打印报告</button>
+      </div>
+    </section>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

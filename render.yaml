@@ -1,0 +1,13 @@
+# Render Blueprint 配置（在 Render 选择 "Blueprint" 导入仓库即可自动识别）
+services:
+  - type: web
+    name: landing-page-diagnostic
+    runtime: node
+    plan: free
+    buildCommand: npm install
+    startCommand: npm start
+    # 端口由 Render 通过环境变量 PORT 自动注入，代码中已支持
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production

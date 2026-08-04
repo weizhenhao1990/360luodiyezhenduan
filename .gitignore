@@ -1,0 +1,16 @@
+# 依赖与构建产物
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# 本地穿透/测试产物
+*.log
+analysis_*.json
+report_*.pdf
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 本地一键启动脚本（含本机绝对路径，不纳入部署）
+start-public.bat
