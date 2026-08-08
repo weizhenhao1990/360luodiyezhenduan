@@ -26,7 +26,7 @@
     <section class="input-section">
       <div class="input-card">
         <h2 class="input-title">输入落地页网址，一键生成诊断报告</h2>
-        <p class="input-desc">检测加载速度 · 转化表单 · 联系方式 · 产品介绍，四大维度全面评估落地页质量</p>
+        <p class="input-desc">十大维度全面评估落地页质量：加载性能 · 转化表单 · 联系方式 · 产品介绍 · 营销匹配度 · 信任背书 · CTA · 排版 · 移动端 · 合规</p>
         <div class="input-row">
           <div class="input-wrap">
             <span class="input-prefix">https://</span>
@@ -37,13 +37,22 @@
             <span class="btn-icon">→</span>
           </button>
         </div>
+        <div class="keyword-row">
+          <input type="text" id="keywordInput" class="keyword-input" placeholder="搜索关键词 / 广告创意（SEM匹配度选填，不填则按页面主题一致性近似评估）" autocomplete="off" />
+        </div>
         <div id="errorMsg" class="error-msg" style="display:none;"></div>
         <div class="quick-links">
           <span class="quick-label">诊断维度：</span>
-          <span class="tag">⚡ 加载速度</span>
+          <span class="tag">⚡ 加载性能</span>
           <span class="tag">📋 转化表单</span>
           <span class="tag">📞 联系方式</span>
           <span class="tag">📦 产品介绍</span>
+          <span class="tag">🎯 营销匹配</span>
+          <span class="tag">🛡️ 信任背书</span>
+          <span class="tag">🚀 CTA</span>
+          <span class="tag">📐 排版</span>
+          <span class="tag">📱 移动端</span>
+          <span class="tag">✅ 合规</span>
         </div>
       </div>
     </section>
@@ -109,111 +118,15 @@
           </div>
         </div>
 
-        <div class="dimension-scores">
-          <div class="dim-score-item" data-dim="speed">
-            <div class="dim-icon">⚡</div>
-            <div class="dim-info">
-              <div class="dim-name">加载速度</div>
-              <div class="dim-bar-wrap">
-                <div class="dim-bar" id="bar-speed"></div>
-              </div>
-              <div class="dim-score-text" id="score-speed">--分</div>
-            </div>
-          </div>
-          <div class="dim-score-item" data-dim="conversion">
-            <div class="dim-icon">📋</div>
-            <div class="dim-info">
-              <div class="dim-name">转化表单</div>
-              <div class="dim-bar-wrap">
-                <div class="dim-bar" id="bar-conversion"></div>
-              </div>
-              <div class="dim-score-text" id="score-conversion">--分</div>
-            </div>
-          </div>
-          <div class="dim-score-item" data-dim="contact">
-            <div class="dim-icon">📞</div>
-            <div class="dim-info">
-              <div class="dim-name">联系方式</div>
-              <div class="dim-bar-wrap">
-                <div class="dim-bar" id="bar-contact"></div>
-              </div>
-              <div class="dim-score-text" id="score-contact">--分</div>
-            </div>
-          </div>
-          <div class="dim-score-item" data-dim="product">
-            <div class="dim-icon">📦</div>
-            <div class="dim-info">
-              <div class="dim-name">产品介绍</div>
-              <div class="dim-bar-wrap">
-                <div class="dim-bar" id="bar-product"></div>
-              </div>
-              <div class="dim-score-text" id="score-product">--分</div>
-            </div>
-          </div>
-        </div>
+        <!-- 各维度评分条（动态渲染） -->
+        <div class="dimension-scores" id="dimensionScores"></div>
       </div>
 
       <!-- 总体建议 -->
       <div id="overallSuggestions" class="overall-suggestions"></div>
 
-      <!-- 各维度详细结果 -->
-      <div class="dimensions-detail">
-        <!-- 加载速度 -->
-        <div class="dim-detail-card" id="detail-speed">
-          <div class="dim-detail-header">
-            <span class="dim-detail-icon">⚡</span>
-            <h3>加载速度分析</h3>
-            <span class="dim-detail-score" id="detail-score-speed">--</span>
-          </div>
-          <div class="findings-list" id="findings-speed"></div>
-          <div class="suggestions-block">
-            <h4 class="suggestions-title">🔧 整改建议</h4>
-            <ul class="suggestions-list" id="suggestions-speed"></ul>
-          </div>
-        </div>
-
-        <!-- 转化表单 -->
-        <div class="dim-detail-card" id="detail-conversion">
-          <div class="dim-detail-header">
-            <span class="dim-detail-icon">📋</span>
-            <h3>转化表单分析</h3>
-            <span class="dim-detail-score" id="detail-score-conversion">--</span>
-          </div>
-          <div class="findings-list" id="findings-conversion"></div>
-          <div class="suggestions-block">
-            <h4 class="suggestions-title">🔧 整改建议</h4>
-            <ul class="suggestions-list" id="suggestions-conversion"></ul>
-          </div>
-        </div>
-
-        <!-- 联系方式 -->
-        <div class="dim-detail-card" id="detail-contact">
-          <div class="dim-detail-header">
-            <span class="dim-detail-icon">📞</span>
-            <h3>联系方式分析</h3>
-            <span class="dim-detail-score" id="detail-score-contact">--</span>
-          </div>
-          <div class="findings-list" id="findings-contact"></div>
-          <div class="suggestions-block">
-            <h4 class="suggestions-title">🔧 整改建议</h4>
-            <ul class="suggestions-list" id="suggestions-contact"></ul>
-          </div>
-        </div>
-
-        <!-- 产品介绍 -->
-        <div class="dim-detail-card" id="detail-product">
-          <div class="dim-detail-header">
-            <span class="dim-detail-icon">📦</span>
-            <h3>产品介绍分析</h3>
-            <span class="dim-detail-score" id="detail-score-product">--</span>
-          </div>
-          <div class="findings-list" id="findings-product"></div>
-          <div class="suggestions-block">
-            <h4 class="suggestions-title">🔧 整改建议</h4>
-            <ul class="suggestions-list" id="suggestions-product"></ul>
-          </div>
-        </div>
-      </div>
+      <!-- 各维度详细结果（动态渲染） -->
+      <div class="dimensions-detail" id="dimensionsDetail"></div>
 
       <!-- 底部操作 -->
       <div class="report-footer">

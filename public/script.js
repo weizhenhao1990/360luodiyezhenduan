@@ -1,5 +1,6 @@
 // ======================== DOM 元素引用 ========================
 const urlInput = document.getElementById('urlInput');
+const keywordInput = document.getElementById('keywordInput');
 const analyzeBtn = document.getElementById('analyzeBtn');
 const errorMsg = document.getElementById('errorMsg');
 const loadingSection = document.getElementById('loadingSection');
@@ -41,9 +42,13 @@ analyzeBtn.addEventListener('click', handleAnalyze);
 urlInput.addEventListener('keypress', (e) => {
   if (e.key === 'Enter') handleAnalyze();
 });
+keywordInput.addEventListener('keypress', (e) => {
+  if (e.key === 'Enter') handleAnalyze();
+});
 reanalyzeBtn.addEventListener('click', () => {
   resultSection.style.display = 'none';
   urlInput.value = '';
+  keywordInput.value = '';
   urlInput.focus();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 });
@@ -57,6 +62,7 @@ document.getElementById('printBtn2').addEventListener('click', printReport);
 // ======================== 主分析流程 ========================
 async function handleAnalyze() {
   const url = urlInput.value.trim();
+  const keyword = keywordInput.value.trim();
   errorMsg.style.display = 'none';
 
   if (!url) {
@@ -75,7 +81,7 @@ async function handleAnalyze() {
   const stepTexts = [
     '正在抓取页面内容...',
     '正在解析HTML结构...',
-    '正在执行多维度分析...',
+    '正在执行十维度分析...',
     '正在生成诊断报告...'
   ];
 
@@ -101,7 +107,7 @@ async function handleAnalyze() {
     const response = await fetch('/api/analyze', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ url })
+      body: JSON.stringify({ url, searchKeyword: keyword })
     });
 
     const data = await response.json();
@@ -175,36 +181,66 @@ function renderResult(data) {
   document.getElementById('gradeText').textContent = getGradeText(data.grade);
   document.querySelector('.grade-badge').style.background = data.gradeColor + '15';
 
-  // 各维度评分条
-  const dims = ['speed', 'conversion', 'contact', 'product'];
-  const dimNames = { speed: '加载速度', conversion: '转化表单', contact: '联系方式', product: '产品介绍' };
+  // 动态渲染维度条 + 详情卡
+  const scoresContainer = document.getElementById('dimensionScores');
+  scoresContainer.innerHTML = '';
+  const detailContainer = document.getElementById('dimensionsDetail');
+  detailContainer.innerHTML = '';
 
-  dims.forEach(dim => {
-    const score = data.dimensions[dim].score;
+  const meta = data.dimensionMeta || [];
+  meta.forEach((d, idx) => {
+    const dim = data.dimensions[d.key];
+    const score = dim.score;
     const color = getScoreColor(score);
-    const bar = document.getElementById('bar-' + dim);
-    const scoreText = document.getElementById('score-' + dim);
-    const detailScore = document.getElementById('detail-score-' + dim);
 
-    bar.style.background = color;
-    scoreText.textContent = score + '分';
-    scoreText.style.color = color;
-    detailScore.textContent = score;
-    detailScore.style.color = color;
-    detailScore.style.background = color + '15';
+    // 维度评分条卡片
+    const item = document.createElement('div');
+    item.className = 'dim-score-item';
+    item.setAttribute('data-dim', d.key);
+    item.innerHTML = `
+      <div class="dim-icon">${d.icon}</div>
+      <div class="dim-info">
+        <div class="dim-name">${d.name} <span class="dim-weight">${d.weight}分</span></div>
+        <div class="dim-bar-wrap">
+          <div class="dim-bar" id="bar-${d.key}"></div>
+        </div>
+        <div class="dim-score-text" id="score-${d.key}">${score}分</div>
+      </div>`;
+    scoresContainer.appendChild(item);
 
     setTimeout(() => {
+      const bar = document.getElementById('bar-' + d.key);
+      bar.style.background = color;
       bar.style.width = score + '%';
-    }, 200 + dims.indexOf(dim) * 150);
+    }, 200 + idx * 90);
 
-    // 渲染检测结果
-    renderFindings(dim, data.dimensions[dim].findings);
-    // 渲染整改建议
-    renderSuggestions(dim, data.dimensions[dim].suggestions);
+    // 维度详情卡
+    const card = document.createElement('div');
+    card.className = 'dim-detail-card';
+    card.id = 'detail-' + d.key;
+    card.innerHTML = `
+      <div class="dim-detail-header">
+        <span class="dim-detail-icon">${d.icon}</span>
+        <h3>${d.name}分析 <span class="dim-weight-tag">权重 ${d.weight} 分</span></h3>
+        <span class="dim-detail-score" id="detail-score-${d.key}">${score}</span>
+      </div>
+      <div class="findings-list" id="findings-${d.key}"></div>
+      <div class="suggestions-block">
+        <h4 class="suggestions-title">🔧 整改建议</h4>
+        <ul class="suggestions-list" id="suggestions-${d.key}"></ul>
+      </div>`;
+    detailContainer.appendChild(card);
+
+    renderFindings(d.key, dim.findings);
+    renderSuggestions(d.key, dim.suggestions);
+
+    const ds = document.getElementById('detail-score-' + d.key);
+    ds.style.color = color;
+    ds.style.background = color + '15';
   });
 
   // 总体建议
-  renderOverallSuggestions(data.overallSuggestions, data.dimensions);
+  renderOverallSuggestions(data.overallSuggestions, data.dimensions, meta);
 }
 
 function renderFindings(dim, findings) {
@@ -235,12 +271,14 @@ function renderSuggestions(dim, suggestions) {
   });
 }
 
-function renderOverallSuggestions(suggestions, dimensions) {
+function renderOverallSuggestions(suggestions, dimensions, meta) {
   const container = document.getElementById('overallSuggestions');
 
   if (!suggestions || suggestions.length === 0) {
     // 如果没有总体建议，根据各维度分数生成
-    const allGood = Object.values(dimensions).every(d => d.score >= 70);
+    const allGood = (meta && meta.length)
+      ? meta.every(d => dimensions[d.key].score >= 70)
+      : Object.values(dimensions).every(d => d.score >= 70);
     if (allGood) {
       container.innerHTML = `
         <h3>✅ 总体评价</h3>
@@ -301,8 +339,6 @@ async function exportPDF() {
     }
 
     // 关键修复：显式指定 Blob 的 MIME 为 application/pdf。
-    // 这样无论经过 localtunnel 等代理是否丢失响应头，浏览器"另存为"对话框
-    // 都会把文件识别为"PDF 文档(*.pdf)"类型，且文件名带 .pdf 后缀。
     const blob = new Blob([buf], { type: 'application/pdf' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
