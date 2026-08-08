@@ -261,7 +261,7 @@ function renderOverallSuggestions(suggestions, dimensions) {
   `;
 }
 
-// ======================== 导出PDF（服务端生成） ========================
+// ======================== 导出PDF（服务端生成 - 修复下载类型） ========================
 async function exportPDF() {
   if (!lastReportData) {
     alert('请先执行落地页诊断，生成报告后再导出。');
@@ -269,20 +269,21 @@ async function exportPDF() {
   }
 
   const data = lastReportData;
-  const filename = '落地页诊断报告_' + data.url.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, '_').substring(0, 30) + '.pdf';
+  // 文件名格式：网址_360SEM落地页诊断报告.pdf
+  const safeUrl = (data.url || 'landing-page').replace(/[\\/:*?"<>|\s]/g, '_').substring(0, 60);
+  const filename = safeUrl + '_360SEM落地页诊断报告.pdf';
 
   // 禁用按钮，显示加载状态
-  const allBtns = document.querySelectorAll('#exportPdfBtn, #exportPdfBtn2, #printBtn, #printBtn2');
-  allBtns.forEach(btn => { btn.disabled = true; });
   const exportBtns = document.querySelectorAll('#exportPdfBtn, #exportPdfBtn2');
   const originalTexts = [];
   exportBtns.forEach(btn => {
+    btn.disabled = true;
     originalTexts.push(btn.innerHTML);
     btn.innerHTML = '<span>⏳</span> 生成中...';
   });
 
   try {
-    // 调用服务端生成PDF并下载（服务端用PDFKit生成，保证内容完整）
+    // 服务端用 PDFKit 生成完整 PDF，前端以二进制方式接收
     const response = await fetch('/api/export-pdf', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -294,11 +295,15 @@ async function exportPDF() {
       throw new Error(errText || '服务端返回错误');
     }
 
-    const blob = await response.blob();
-    if (blob.size === 0) {
+    const buf = await response.arrayBuffer();
+    if (!buf.byteLength) {
       throw new Error('生成的PDF内容为空');
     }
 
+    // 关键修复：显式指定 Blob 的 MIME 为 application/pdf。
+    // 这样无论经过 localtunnel 等代理是否丢失响应头，浏览器"另存为"对话框
+    // 都会把文件识别为"PDF 文档(*.pdf)"类型，且文件名带 .pdf 后缀。
+    const blob = new Blob([buf], { type: 'application/pdf' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
@@ -306,13 +311,15 @@ async function exportPDF() {
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    setTimeout(() => URL.revokeObjectURL(url), 3000);
 
   } catch (err) {
     alert('PDF导出失败: ' + err.message);
   } finally {
-    allBtns.forEach(btn => { btn.disabled = false; });
-    exportBtns.forEach((btn, i) => { btn.innerHTML = originalTexts[i]; });
+    exportBtns.forEach((btn, i) => {
+      btn.disabled = false;
+      if (originalTexts[i]) btn.innerHTML = originalTexts[i];
+    });
   }
 }
 

@@ -383,37 +383,57 @@ function analyzeConversion($) {
 function analyzeContact($) {
   const findings = [];
   let score = 0;
+  // 提取可见纯文本（剔除 script/style/noscript，避免 JS/CSS 里的数字被误判为电话/地址）
   const html = $.html();
+  const bodyClone = $('body').clone();
+  bodyClone.find('script, style, noscript').remove();
+  const pageText = bodyClone.text();
 
-  // 电话号码检测
-  const phonePatterns = [
-    /400[-\s]?\d{3}[-\s]?\d{4}/g,           // 400-xxx-xxxx
-    /400[-\s]?\d{3}[-\s]?\d{3}/g,            // 400-xxx-xxx
-    /1[3-9]\d[-\s]?\d{4}[-\s]?\d{4}/g,       // 手机号
-    /0\d{2,3}[-\s]?\d{7,8}/g,                 // 座机
+  // 电话号码检测（在可见纯文本上匹配，避免 JS/CSS 噪声；最后用归一化规则二次校验）
+  const phoneRawRegex = [
+    /(?:\+?86[-\s]?)?(?:400|800)[-\s.]?(\d{3,4})[-\s.]?(\d{4})/g,   // 400 / 800 免费电话（含 +86）
+    /(?:\+?86[-\s]?)?1[3-9]\d[-\s.]?\d{4}[-\s.]?\d{4}/g,             // 手机号（11 位，含 +86）
+    /\(?0\d{2,3}\)?[-\s.]?\d{3,4}[-\s.]?\d{3,4}/g,                 // 座机 / 固定电话（区号-号码、(区号)号码，允许中段空格）
   ];
-  const phones = new Set();
-  phonePatterns.forEach(p => {
-    const matches = html.match(p);
-    if (matches) matches.forEach(m => phones.add(m.trim()));
+  const rawPhones = [];
+  phoneRawRegex.forEach(p => {
+    const m = pageText.match(p);
+    if (m) m.forEach(s => rawPhones.push(s.trim()));
   });
-  const telLinks = $('a[href^="tel:"]');
-  if (telLinks.length > 0) {
-    telLinks.each((i, el) => {
-      const href = $(el).attr('href');
-      phones.add(href.replace('tel:', ''));
-    });
-  }
+  // tel: 拨号链接
+  $('a[href^="tel:"]').each((i, el) => {
+    const h = ($(el).attr('href') || '').replace(/^tel:/i, '').trim();
+    if (h) rawPhones.push(h);
+  });
+
+  // 归一化（去分隔符 / 国家码）-> 校验 -> 去重
+  const phones = new Set();
+  rawPhones.forEach(raw => {
+    let d = raw.replace(/[^\d]/g, '');
+    if (d.startsWith('86') && d.length === 13) d = d.slice(2);   // 去掉 +86 国家码
+    if (/^1[3-9]\d{9}$/.test(d)) {
+      phones.add(d);                                              // 手机号
+    } else if (/^(400|800)\d{7}$/.test(d)) {
+      phones.add(d);                                              // 400 / 800
+    } else if (/^0\d{9,11}$/.test(d) && !/^0{10,12}$/.test(d)) {
+      phones.add(d);                                              // 座机（排除纯 0 串）
+    }
+  });
 
   if (phones.size > 0) {
     score += 30;
     const phoneList = [...phones].slice(0, 5);
-    const has400 = phoneList.some(p => p.includes('400'));
+    const has400 = phoneList.some(p => p.startsWith('400') || p.startsWith('800'));
+    const labeled = phoneList.map(p => {
+      if (/^1[3-9]\d{9}$/.test(p)) return p + '(手机)';
+      if (/^(400|800)/.test(p)) return p + '(400)';
+      return p + '(座机)';
+    });
     findings.push({
       item: '联系电话',
-      value: phones.size + ' 个 (' + phoneList.join(', ') + (phones.size > 5 ? '...' : '') + ')',
+      value: phones.size + ' 个 (' + labeled.join(', ') + (phones.size > 5 ? '...' : '') + ')',
       status: has400 ? 'good' : 'fair',
-      detail: has400 ? '检测到400电话，专业度高，增强用户信任' : '检测到联系电话，建议使用400电话提升企业形象'
+      detail: has400 ? '检测到400/800电话，专业度高，显著增强用户信任' : '检测到联系电话，建议使用400电话统一对外形象、提升信任'
     });
   } else {
     findings.push({
@@ -427,7 +447,7 @@ function analyzeContact($) {
   // 邮箱检测
   const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g;
   const emails = new Set();
-  const emailMatches = html.match(emailRegex);
+  const emailMatches = pageText.match(emailRegex);
   if (emailMatches) emailMatches.forEach(m => emails.add(m));
   const mailtoLinks = $('a[href^="mailto:"]');
   if (mailtoLinks.length > 0) {
@@ -455,11 +475,11 @@ function analyzeContact($) {
 
   // QQ/微信检测
   const qqRegex = /QQ[\s:：]*\d{5,12}/gi;
-  const wechatRegex = /(?:微信|wechat|weixin)[\s:：]*[a-zA-Z0-9_-]{4,30}/gi;
+  const wechatRegex = /(?:微信|微信号|wechat|weixin)[\s:：]*[a-zA-Z0-9_-]{4,30}/gi;
   const qqGroupRegex = /(?:QQ群|加群)[\s:：]*\d{5,12}/gi;
-  const qqs = html.match(qqRegex);
-  const wechats = html.match(wechatRegex);
-  const qqGroups = html.match(qqGroupRegex);
+  const qqs = pageText.match(qqRegex);
+  const wechats = pageText.match(wechatRegex);
+  const qqGroups = pageText.match(qqGroupRegex);
 
   if (qqs || wechats || qqGroups) {
     score += 20;
@@ -482,36 +502,52 @@ function analyzeContact($) {
     });
   }
 
-  // 地址检测
-  const addressKeywords = ['地址', '公司地址', '联系地址', '办公地址', '总部地址', '厂址'];
+  // 地址检测：两路并行 —— 关键词附近的真实地址 + 无关键词时按行政区划/道路门牌模式直接抓取
   let addressFound = false;
   let addressText = '';
-  $('*').each((i, el) => {
-    const text = $(el).clone().children().remove().end().text();
-    for (const kw of addressKeywords) {
-      if (text.includes(kw)) {
-        addressFound = true;
-        addressText = text.substring(text.indexOf(kw), text.indexOf(kw) + 80).trim();
-        break;
-      }
-    }
+  const addrFeature = /(省|市|区|县|旗|镇|路|街|道|巷|大道|大街|号|栋|幢|楼|大厦|广场|园区|花园|中心|室|层|座)/;
+
+  // 4a. 关键词附近（排除“网站地址 / 邮箱地址 / 域名”等）
+  const exclAddr = /(网站|域名|邮箱|邮件|url|网址)/i;
+  $('body *').each((i, el) => {
     if (addressFound) return false;
+    const tag = (el.tagName || '').toLowerCase();
+    if (tag === 'script' || tag === 'style' || tag === 'noscript') return;
+    const t = $(el).clone().children().remove().end().text().trim();
+    if (!t) return;
+    const kwStart = t.search(/地址|公司位于|位于|办公地点|所在地/);
+    if (kwStart === -1) return;
+    if (exclAddr.test(t)) return;                                   // 命中排除词，不是实体地址
+    if (!addrFeature.test(t)) return;                               // 没有真实地址特征
+    addressFound = true;
+    addressText = t.length > 70 ? t.substring(kwStart, kwStart + 70).trim() : t;
   });
+
+  // 4b. 无关键词时，按“省/市/区 + 路/街 + 号/楼”模式直接抓取
+  if (!addressFound) {
+    const addrPat = /([\u4e00-\u9fa5]{2,8}(?:省|市|区|县|旗|镇))[\u4e00-\u9fa50-9\s]*(?:[\u4e00-\u9fa5]{1,12}(?:路|街|道|巷|大道|大街))[\u4e00-\u9fa50-9\s]*(?:[\u4e00-\u9fa50-9]{1,12}(?:号|栋|幢|楼|大厦|广场|园区|花园|中心|室|层|座))?/g;
+    const m = pageText.match(addrPat);
+    if (m && m.length) {
+      addressFound = true;
+      addressText = m[0].trim();
+    }
+  }
 
   if (addressFound) {
     score += 15;
+    const shown = addressText.length > 60 ? addressText.substring(0, 60) + '...' : addressText;
     findings.push({
       item: '公司地址',
       value: '已展示',
       status: 'good',
-      detail: '检测到公司地址信息，增强企业可信度: ' + addressText.substring(0, 50)
+      detail: '检测到公司地址信息，增强企业可信度: ' + shown
     });
   } else {
     findings.push({
       item: '公司地址',
       value: '未检测到',
       status: 'fair',
-      detail: '未检测到公司地址，建议添加详细办公地址以增强企业可信度'
+      detail: '未检测到公司地址，建议添加详细办公地址（含省市区、道路门牌）以增强企业可信度'
     });
   }
 
@@ -543,8 +579,8 @@ function analyzeContact($) {
   const suggestions = [];
   if (phones.size === 0) {
     suggestions.push('🔴 未检测到联系电话，强烈建议添加400电话或客服热线，这是建立信任的基本要素');
-  } else if (!phones.has(p => p.includes('400'))) {
-    suggestions.push('🟡 建议申请400电话替代普通手机/座机号码，提升企业专业形象和用户信任度');
+  } else if (![...phones].some(p => p.startsWith('400') || p.startsWith('800'))) {
+    suggestions.push('🟡 建议申请400/800电话替代普通手机/座机号码，提升企业专业形象和用户信任度');
   }
   if (emails.size === 0) {
     suggestions.push('🟡 建议添加企业邮箱(如service@company.com)，提供正式沟通渠道');
@@ -1098,9 +1134,11 @@ app.post('/api/export-pdf', async (req, res) => {
       return res.status(400).send('无效的诊断数据');
     }
     const pdfBuffer = await generatePdfReport(data);
-    const filename = '落地页诊断报告_' + data.url.replace(/[^a-zA-Z0-9\u4e00-\u9fa5]/g, '_').substring(0, 30) + '.pdf';
+    // 文件名格式：网址_360SEM落地页诊断报告.pdf（兜底用，前端下载以 a.download 为准）
+    const safeUrl = data.url.replace(/[\\/:*?"<>|\s]/g, '_').substring(0, 60);
+    const filename = safeUrl + '_360SEM落地页诊断报告.pdf';
     res.setHeader('Content-Type', 'application/pdf');
-    res.setHeader('Content-Disposition', 'attachment; filename="landing-page-report.pdf"; filename*=UTF-8\'\'' + encodeURIComponent(filename));
+    res.setHeader('Content-Disposition', 'attachment; filename="360SEM-report.pdf"; filename*=UTF-8\'\'' + encodeURIComponent(filename));
     res.setHeader('Content-Length', pdfBuffer.length);
     res.send(pdfBuffer);
   } catch (err) {
