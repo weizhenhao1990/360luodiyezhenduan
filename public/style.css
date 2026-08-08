@@ -831,9 +831,33 @@ body {
   .finding-item { break-inside: avoid; }
   .suggestions-block { break-inside: avoid; }
   .overall-suggestions { break-inside: avoid; }
+  .site-footer { display: none !important; }
 
   @page {
     size: A4;
     margin: 15mm;
   }
+}
+
+/* 页面底部署名与免责声明 */
+.site-footer {
+  text-align: center;
+  padding: 36px 20px 48px;
+  margin-top: 80px;
+  border-top: 1px solid #eee;
+  background: #fafafa;
+}
+
+.site-footer .footer-author {
+  margin: 0 0 6px;
+  font-size: 14px;
+  font-weight: 600;
+  color: #555;
+}
+
+.site-footer .footer-note {
+  margin: 0;
+  font-size: 12px;
+  color: #999;
+  letter-spacing: 0.3px;
 }
